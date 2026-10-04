@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MI FONDO">
+<title>MI FONDO</title>
+<style>
+*{box-sizing:border-box}
+html,body{overscroll-behavior:none; margin:0; background:#0f0f0f; color:#fff; font-family:system-ui; }
+#app{padding:14px; min-height:100vh}
+.card{background:#1e1e1e;padding:14px;border-radius:18px;margin:10px 0;border:1px solid #2a2a2a}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.total{font-size:34px;color:#FFC300;font-weight:900}
+.total-card{text-align:center; border:2px solid #FFC300}
+.small{font-size:11px;opacity:.6;text-transform:uppercase}
+.saldo{font-size:18px;font-weight:900; margin-top:4px}
+
+/* ESTO HACE QUE SEAN CLICKEABLES */
+.fondo-btn{
+  cursor:pointer;
+  border:2px solid #2a2a2a;
+  transition:.1s;
+  user-select:none;
+}
+.fondo-btn:active{
+  transform:scale(0.95);
+  background:#FFC300;
+  border-color:#FFC300;
+  color:#000;
+}
+.fondo-btn:active.small,.fondo-btn:active.saldo{color:#000}
+
+.btn{width:100%;padding:18px;border:none;border-radius:14px;font-weight:900;margin:6px 0;font-size:16px}
+.btn-a{background:#FFC300;color:#000}.btn-g{background:#ff3b30;color:#fff}.btn-n{background:#262626;color:#fff;border:1px solid #333}
+input,select{width:100%;padding:15px;border-radius:12px;border:none;margin:7px 0;background:#2a2a2a;color:#fff;font-size:16px}
+.mv{background:#252525;padding:12px;border-radius:12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;border:1px solid #333}
+.acordeon{background:#1e1e1e;border:1px solid #2a2a2a;border-radius:14px;margin:10px 0}
+.ac-head{padding:18px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:800}
+.ac-body{padding:0 14px 14px 14px;border-top:1px solid #2a2a2a}
+.badge{background:#FFC300;color:#000;padding:3px 8px;border-radius:20px;font-size:12px;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="app">
+<h2 style="color:#FFC300;text-align:center">💰 MI FONDO</h2>
+
+<div class="card total-card"><div class="small">Saldo Total</div><div class="total" id="e_to">$0</div></div>
+
+<!-- CUADROS CLICKEABLES -->
+<div class="grid">
+  <div class="card fondo-btn" onclick="abrirFondo('efectivo')">
+    <div class="small">👇 TOCAR</div>
+    <div class="small" style="color:#FFC300">EFECTIVO</div>
+    <div class="saldo" id="e_ef">$0</div>
+  </div>
+  <div class="card fondo-btn" onclick="abrirFondo('transferencia')">
+    <div class="small">👇 TOCAR</div>
+    <div class="small" style="color:#FFC300">TRANSF.</div>
+    <div class="saldo" id="e_tr">$0</div>
+  </div>
+  <div class="card fondo-btn" onclick="abrirFondo('porCobrar')">
+    <div class="small">👇 TOCAR</div>
+    <div class="small" style="color:#FFC300">X COBRAR</div>
+    <div class="saldo" id="e_pc">$0</div>
+  </div>
+</div>
+
+<div id="form" class="card" style="display:none; border:2px solid #FFC300"></div>
+
+<div class="acordeon">
+<div class="ac-head" onclick="toggle('body-mov')"><span>📋 Movimientos <span class="badge" id="cant-mov">0</span></span><span id="fle-mov">▼</span></div>
+<div class="ac-body" id="body-mov" style="display:none"><div id="lista" style="max-height:50vh;overflow:auto"></div></div>
+</div>
+
+<div class="acordeon">
+<div class="ac-head" onclick="toggle('body-aj')"><span>⚙️ Ajustes</span><span id="fle-aj">▼</span></div>
+<div class="ac-body" id="body-aj" style="display:none">
+<button class="btn btn-n" onclick="editarFondos()">✏️ EDITAR SALDOS</button>
+<button class="btn btn-n" onclick="exportar()">📤 EXPORTAR</button>
+<input type="file" id="importFile" style="display:none" onchange="importar(event)">
+<button class="btn btn-n" onclick="document.getElementById('importFile').click()">📥 IMPORTAR</button>
+</div>
+</div>
+</div>
+
+<script>
+let datos = JSON.parse(localStorage.getItem('mi_fondo_v6') || '{"efectivo":0,"transferencia":0,"porCobrar":0,"movs":[]}');
+let fondoSel = 'efectivo';
+
+// BLOQUEAR RECARGA AL DESLIZAR
+document.addEventListener('touchmove', e => { if(document.getElementById('app').scrollTop <=0 && e.touches[0].clientY > 50) {} }, {passive:true});
+
+function toggle(id){
+  let b = document.getElementById(id);
+  b.style.display = b.style.display==='none'? 'block' : 'none';
+}
+function guardar(){ localStorage.setItem('mi_fondo_v6', JSON.stringify(datos)); render(); }
+function render(){
+  document.getElementById('e_ef').innerText = '$'+datos.efectivo.toLocaleString('es-AR');
+  document.getElementById('e_tr').innerText = '$'+datos.transferencia.toLocaleString('es-AR');
+  document.getElementById('e_pc').innerText = '$'+datos.porCobrar.toLocaleString('es-AR');
+  document.getElementById('e_to').innerText = '$'+(datos.efectivo+datos.transferencia+datos.porCobrar).toLocaleString('es-AR');
+  document.getElementById('cant-mov').innerText = datos.movs.length;
+  let html='';
+  datos.movs.slice().reverse().forEach((m, idxRev)=>{
+    let i = datos.movs.length-1 - idxRev;
+    html += `<div class="mv"><div><b style="color:${m.tipo==='gasto'?'#ff6b6b':'#4cd964'}">${m.tipo==='gasto'?'-':'+'} $${m.monto.toLocaleString('es-AR')}</b> <span class="small">${m.cat} | ${m.fondo}</span><br><span class="small">${m.desc} | ${m.fecha}</span></div><div><button onclick="borrarMov(${i})">❌</button></div></div>`;
+  });
+  document.getElementById('lista').innerHTML = html || '<p class="small" style="text-align:center;padding:20px">Sin movimientos</p>';
+}
+
+function abrirFondo(fondo){
+  fondoSel = fondo;
+  let nombre = fondo==='efectivo'?'EFECTIVO':fondo==='transferencia'?'TRANSFERENCIA':'POR COBRAR';
+  document.getElementById('form').style.display='block';
+  document.getElementById('form').innerHTML = `
+    <h3 style="text-align:center;margin:0 0 10px 0">📦 ${nombre}</h3>
+    <p class="small" style="text-align:center">¿Que querés hacer en ${nombre}?</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-a" onclick="abrirIngresoGasto('ingreso')">+ INGRESAR</button>
+      <button class="btn btn-g" onclick="abrirIngresoGasto('gasto')">- GASTAR</button>
+    </div>
+    <button class="btn btn-n" onclick="document.getElementById('form').style.display='none'">CANCELAR</button>
+  `;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function abrirIngresoGasto(tipo){
+  document.getElementById('form').innerHTML = `
+    <h3>${tipo==='ingreso'?'💵 INGRESAR EN':'🔥 GASTAR DE'} ${fondoSel.toUpperCase()}</h3>
+    <input id="monto" type="number" inputmode="numeric" placeholder="Monto ej: 20000" autofocus>
+    <select id="cat"><option>Combustible</option><option>Negocio / Super</option><option>Otros</option><option>Casa</option><option>Trabajo / Ingreso</option><option>Cobranza</option></select>
+    <input id="desc" placeholder="Ej: 20mil combustible">
+    <button class="btn ${tipo==='ingreso'?'btn-a':'btn-g'}" onclick="confirmar('${tipo}')">GUARDAR EN ${fondoSel.toUpperCase()}</button>
+    <button class="btn btn-n" onclick="abrirFondo('${fondoSel}')">← VOLVER</button>
+  `;
+}
+
+function confirmar(tipo){
+  let monto = parseInt(document.getElementById('monto').value)||0;
+  let cat = document.getElementById('cat').value;
+  let desc = document.getElementById('desc').value || cat;
+  if(!monto) return alert('Pone monto');
+  if(tipo==='gasto') datos[fondoSel] -= monto; else datos[fondoSel] += monto;
+  datos.movs.push({monto, fondo: fondoSel, cat, desc, tipo, fecha: new Date().toLocaleDateString('es-AR')+' '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})});
+  document.getElementById('form').style.display='none';
+  guardar();
+  document.getElementById('body-mov').style.display='block';
+}
+
+function borrarMov(i){ if(confirm('¿Borrar y revertir saldo?')){ let m=datos.movs[i]; if(m.tipo==='gasto') datos[m.fondo]+=m.monto; else datos[m.fondo]-=m.monto; datos.movs.splice(i,1); guardar(); } }
+function editarFondos(){ let ef=prompt('EFECTIVO', datos.efectivo); let tr=prompt('TRANSFERENCIA', datos.transferencia); let pc=prompt('POR COBRAR', datos.porCobrar); if(ef!==null) datos.efectivo=parseInt(ef)||0; if(tr!==null) datos.transferencia=parseInt(tr)||0; if(pc!==null) datos.porCobrar=parseInt(pc)||0; guardar(); }
+function exportar(){ let blob=new Blob([JSON.stringify(datos)],{type:'application/json'}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='fondo.json'; a.click(); }
+function importar(e){ let r=new FileReader(); r.onload=()=>{ datos=JSON.parse(r.result); guardar(); }; r.readAsText(e.target.files[0]); }
+render();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
